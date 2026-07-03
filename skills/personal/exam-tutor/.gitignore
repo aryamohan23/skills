@@ -1,0 +1,5 @@
+# Ignore all study material and generated quizzes — keep only the READMEs.
+sources/**
+!sources/README.md
+quizzes/**
+!quizzes/README.md
