@@ -19,14 +19,31 @@ Read from those folders when I name a topic. Handling by file type:
 
 - **Text / Markdown** — read directly with the file-reading tool.
 - **Images (PNG/JPG)** — read directly if your model supports vision. If you can't see it, ask me to attach it to the chat message.
-- **PDFs** — you have `pdftotext` and `pdftoppm` available (poppler). Use the terminal:
-  - Text-only extraction, whole book: `pdftotext -layout 'sources/textbooks/rogers.pdf' -` (pipes to stdout so you can read it).
-  - Text-only, page range: `pdftotext -layout -f 412 -l 428 'sources/textbooks/rogers.pdf' -`.
-  - List pages first if you don't know the layout: `pdfinfo 'sources/textbooks/rogers.pdf'`.
-  - Convert a specific page to an image (for figures/tables): `pdftoppm -png -r 150 -f 415 -l 415 'sources/textbooks/rogers.pdf' /tmp/rogers-p415` then read the resulting `/tmp/rogers-p415-1.png`.
-  - Never dump the full text of a huge book into context — locate the chapter with `pdfinfo` or a targeted grep first (`pdftotext -layout book.pdf - | grep -n -i 'septic shock'`).
+- **PDFs** — you have `pdftotext`, `pdftoppm`, `pdfinfo`, `pdfimages` (poppler) and `ocrmypdf` (Tesseract OCR) available.
 
-If poppler isn't installed you'll get "command not found" — tell me and I'll install it (`brew install poppler`).
+### PDF routing rules (in this order)
+
+**Rule 1 — `past-papers/` folder: always render every referenced page as PNG.** Past papers are clinical vignettes with X-rays, ECGs, ventilator waveforms, echo images. Text extraction alone will silently drop the figure that the question depends on. Do not use `pdftotext` as your primary source for anything in `past-papers/`. Command: `pdftoppm -png -r 150 -f N -l N 'file.pdf' /tmp/page` then read the resulting PNG.
+
+**Rule 2 — `textbooks/` folder: text-first, but check for images per page and render those.**
+  1. Extract text: `pdftotext -layout -f N -l M 'file.pdf' -`.
+  2. On the same pages, run `pdfimages -list -f N -l M 'file.pdf'`. This prints one row per embedded image with its page number. Zero rows → text is safe on its own. Any rows → also render those pages with `pdftoppm` and read the PNGs alongside the text.
+  3. If `pdftotext` output looks like garbled OCR (missing letters, weird spacing, nonsense words, sub-100-char output for a full page), **treat it as untrusted** — fall back to `pdftoppm` for those pages regardless.
+
+**Rule 3 — Scanned PDF with no text layer (either folder).**
+  - Check: `pdftotext -layout 'file.pdf' - | head -c 500`. Empty or garbage → no text layer.
+  - For a **text-heavy textbook** where you'll be querying many pages over time, OCR it once: `ocrmypdf --skip-text 'file.pdf' 'file.pdf'`. Warn me first — this takes several minutes. After it completes, Rule 2 applies.
+  - For a **past paper** or a one-off lookup, skip OCR — go straight to `pdftoppm` (Rule 1).
+
+**Rule 4 — Utility commands.**
+  - Layout: `pdfinfo 'file.pdf'` (total pages, whether text is embedded).
+  - Locate chapter: `pdftotext -layout 'file.pdf' - | grep -n -i 'septic shock'`.
+  - Render range: `pdftoppm -png -r 150 -f 12 -l 15 'file.pdf' /tmp/page`.
+  - Bump resolution to `-r 200` if text on rendered pages is small.
+
+**Never** dump the full text of a huge book into context — locate the chapter first.
+
+If any tool isn't installed you'll get "command not found" — tell me and I'll install it (`brew install poppler ocrmypdf`).
 
 When textbooks don't cover a question (common in PICU because practice moves faster than print), you may rely on standard guidelines — but always cite the source (SCCM, PALS, ELSO, Cochrane, landmark trial by name).
 

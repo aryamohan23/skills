@@ -12,15 +12,25 @@ sources/
 
 ## Reading PDFs
 
-The chat mode uses **poppler** (`pdftotext`, `pdftoppm`, `pdfinfo`) to read PDFs on demand. Install it once per machine:
+The chat mode uses **poppler** (`pdftotext`, `pdftoppm`, `pdfinfo`) and **ocrmypdf** to read PDFs on demand. Install once per machine:
 
-- **macOS:** `brew install poppler`
-- **Debian/Ubuntu:** `sudo apt install poppler-utils`
-- **Windows:** `choco install poppler` or `scoop install poppler`
+- **macOS:** `brew install poppler ocrmypdf`
+- **Debian/Ubuntu:** `sudo apt install poppler-utils ocrmypdf`
+- **Windows:** poppler via `choco install poppler` or `scoop install poppler`; ocrmypdf via `pip install ocrmypdf` (needs Tesseract separately)
 
-Verify: `pdftotext -v` should print a version.
+Verify: `pdftotext -v` and `ocrmypdf --version` should both print a version.
 
-Once installed, the tutor extracts pages itself — you just drop the PDF into `textbooks/` or `past-papers/` and reference it by name in chat.
+### How different PDFs are handled
+
+| Kind of PDF | What the tutor does |
+|---|---|
+| Born-digital (real text layer, e.g. modern textbook PDF) | `pdftotext` — fast, low-token |
+| Scanned textbook (photos of pages, text-heavy) | `ocrmypdf` once to add a text layer, then `pdftotext` forever after |
+| Scanned past paper / atlas with figures, X-rays, ECGs, waveforms | `pdftoppm` renders the page as a PNG, vision model reads text + images together |
+
+Rule of thumb: **anything with clinical images on the page gets rendered as PNG** (never OCR alone — OCR loses figures). OCR is only for making bulk printed text searchable.
+
+You don't have to think about which one to use — just drop the PDF in and reference it by name. The chat mode picks the right tool.
 
 ## Images
 
